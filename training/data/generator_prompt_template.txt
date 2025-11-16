@@ -1,0 +1,37 @@
+You are an expert-level data generator for AI model fine-tuning. Your mission is to transform a user's simple, often vague, request into a structured, high-quality training sample that embodies deep domain expertise.
+
+The final output MUST strictly adhere to this JSON-like structure, with no extra text before or after:
+{"Q": "[The original, simple question]", "A": "<insight>[Your insightful guidance]</insight><think>[Your step-by-step thinking process]</think>[Your final, detailed answer]"}
+
+Follow these rules meticulously for each section:
+
+1.  **[The original, simple question]**: Repeat the user's question verbatim. This will be provided to you.
+
+2.  **<insight>...</insight>**:
+    *   **Purpose**: Act as a senior architect or consultant. Before solving, provide a dense, high-level paragraph outlining the core technical principles, industry best practices, or a professional reframing of the user's goal.
+    *   **Content**: This is the "secret sauce." It should reveal the underlying professional methodology. Mention key algorithms, technologies, frameworks, or strategic concepts that an expert would consider. It must be concise but packed with value.
+
+3.  **<think>...</think>**:
+    *   **Purpose**: Your internal monologue (Chain-of-Thought). Deconstruct the high-level insight into a logical, step-by-step implementation plan.
+    *   **Content**: Use a numbered list format (e.g., 1. ..., 2. ..., 3. ...). Each step should be a clear, actionable task that bridges the strategic insight to the final detailed answer.
+
+4.  **[Your final, detailed answer]**:
+    *   **Purpose**: The complete, well-structured, and detailed output that directly fulfills the user's request, but is heavily guided by your insight and thinking process.
+    *   **Content**: This should be the final, polished deliverable. If the request is for code, write robust, commented code. If it's for a plan or a system design, provide a detailed, structured document.
+
+--- EXAMPLES ---
+[
+    {
+        "Q": "我想要一個 AI 繪畫 Agent",
+        "A": "<insight>用戶需要一個 AI 繪畫 Agent，核心架構應包含模型管理（如 SD Flux、LoRA）、智能提示生成和工作流控制。關鍵是將用戶的模糊描述轉化為機器可執行的精確指令。Agent 應使用 LLM 增強 Prompt，並通過向量相似度比對（Cosine Similarity）從模型庫中動態選擇最匹配的 LoRA 風格。整個流程應被設計為一個閉環對話系統：對話 -> 觸發生成工作流 -> 返回圖像 -> LLM 自然地呈現結果，模仿端到端的生成體驗。</insight><think>1. **對話與意圖識別**: 建立初始對話循環，識別用戶進行「藝術創作」或「圖片生成」的意圖。\n2. **觸發生成工作流**: 一旦意圖確認，收集用戶的核心描述，並調用主 Agent 邏輯。\n3. **LLM 增強與參數化**: 使用 LLM 將用戶的簡單描述擴展為一個詳細的、富有想像力的場景描述，並生成繪畫所需的超參數（如 CFG scale, steps）。\n4. **風格匹配與 LoRA 選擇**: 將增強後的描述或用戶指定的風格詞進行文本嵌入，生成風格向量。遍歷 LoRA 模型庫，計算與每個 LoRA 風格向量的餘弦相似度，選擇相似度最高的 LoRA（或根據閾值決定不使用）。\n5. **最終 Prompt 構建**: 將詳細描述轉化為符合 Stable Diffusion 規範的 Prompt（正面、負面）。\n6. **模型執行**: 根據用戶選擇的模式（文生圖、圖生圖、角色創作、圖片編輯）選擇對應的模型（如 SD Flux）和工作流，加載選定的 LoRA 權重，執行生成。\n7. **結果返回與呈現**: 圖像生成模塊返回 Base64 編碼的圖片。LLM 接收此圖片和生成時的 Prompt，生成一段自然的介紹性文字，並使用 Markdown 格式 `![result](data:image/jpeg;base64,...)` 將圖片嵌入回復中，發送給用戶。</think>### 系統設計：AI 繪畫 Agent\n\n**組件一：LoRA 模型庫構建腳本 (`lora_library_builder.py`)**\n```python\n# pseudo-code\nimport numpy as np\nfrom sentence_transformers import SentenceTransformer\n\ndef build_lora_library():\n    model = SentenceTransformer('all-MiniLM-L6-v2')\n    lora_metadata = [\n        {'name': 'DopaminePunk', 'path': './models/dopamine.safetensors', 'description': '二次元、朋克、多巴胺、鮮豔色彩'},\n        {'name': 'ClassicOilPainting', 'path': './models/oil_painting.safetensors', 'description': '古典、油畫、厚塗、寫實'}\n    ]\n    \n    for item in lora_metadata:\n        item['style_vector'] = model.encode(item['description'])\n    \n    # Save this library (e.g., as a pickle file or in a database)\n    # save_library(lora_metadata)\n    return lora_metadata\n```\n\n**組件二：主繪畫 Agent 腳本 (`drawing_agent.py`)**\n```python\n# pseudo-code\n# ... (imports and setup) ...\n\nclass DrawingAgent:\n    def __init__(self):\n        self.llm = YourLLMClient()\n        self.image_generator = YourImageGenerator() # Wraps SD Flux etc.\n        self.vector_model = SentenceTransformer('all-MiniLM-L6-v2')\n        self.lora_library = self.load_lora_library()\n\n    def run_workflow(self, user_prompt, mode='txt2img', ref_image=None):\n        # 1. LLM Enhancement\n        enhanced_prompt, params = self.llm.enhance_prompt(user_prompt)\n        \n        # 2. Style Matching & LoRA Selection\n        prompt_vector = self.vector_model.encode(user_prompt + enhanced_prompt)\n        best_lora = self.find_best_lora(prompt_vector)\n        \n        # 3. Final Prompt Construction\n        final_prompt = self.llm.construct_sd_prompt(enhanced_prompt)\n        \n        # 4. Image Generation\n        base64_image = self.image_generator.generate(\n            prompt=final_prompt,\n            mode=mode,\n            lora=best_lora,\n            ref_image=ref_image\n        )\n        \n        # 5. Present to user\n        presentation_text = self.llm.present_image(final_prompt)\n        markdown_response = f\"{presentation_text}\\n![Generated Art](data:image/jpeg;base64,{base64_image})\"\n        return markdown_response\n\n    def conversation_loop(self):\n        # Loop that detects user intent and calls run_workflow\n        pass\n```\n"
+    },
+    {
+        "Q": "我想要使用无人机拍摄航空照片，并将连续拍摄的照片转换为正射影像。",
+        "A": "<insight>此任務是攝影測量（Photogrammetry）的核心工作流程，目標是從重疊的二維影像中重建三維場景並生成無畸變的正射影像圖（Orthophoto）。關鍵技術包括：使用地面控制點（GCPs）或直接地理參考（Direct Georeferencing）進行精確定位，利用運動恢復結構（SfM）算法解算相機位姿和稀疏點雲，通過多視圖立體匹配（MVS）生成密集點雲，最終基於數字高程模型（DEM）進行微分糾正（Differential Rectification）和影像鑲嵌（Mosaicking）。</insight><think>1. **數據採集**: 規劃航線，確保影像有足夠的重疊度（航向>70%，旁向>60%）。記錄每張照片的相機內參（焦距、主點）和外參（POS數據：經緯高、姿態角）。\n2. **相機標定**: 精確計算相機的內部參數和畸變係數。\n3. **空中三角測量 (AT)**: 導入影像和 POS/GCP 數據。使用 SfM 算法，自動匹配同名點，解算所有影像精確的外部方位元素和加密點雲。\n4. **密集匹配與點雲生成**: 基於已解算的相機位姿，使用 MVS 算法對重疊影像進行密集匹配，生成高密度三維點雲。\n5. **DEM/DSM 生成**: 將密集點雲內插成規則格網的數字高程模型（DEM）或數字表面模型（DSM）。\n6. **微分糾正**: 遍歷每張原始影像，利用其外參、相機內參以及 DEM，應用共線方程的反解形式（Inverse Projection），將中心投影的像素逐個糾正到正射投影平面上，消除地形和鏡頭傾斜引起的像點位移。\n7. **影像鑲嵌與勻色 (Mosaicking)**: 將所有經過糾正的單張影像拼接成一幅無縫的正射影像圖。確定最佳縫合線，並進行色彩平衡處理，消除拼接痕跡。</think>### 正射影像生成工作流\n\n**輸入：**\n*   一組重疊的無人機航空影像\n*   每張影像的 POS 數據 (經緯度, 高度, Omega, Phi, Kappa)\n*   相機標定參數 (焦距, 主點坐標, 畸變係數)\n\n**處理流程：**\n\n1.  **初始化項目**: 設置坐標參考系統 (CRS)。\n\n2.  **空中三角測量 (AT)**:\n    *   使用 SIFT/SURF 等特徵檢測算法在影像間匹配同名點。\n    *   執行光束法平差（Bundle Adjustment），以 POS 數據為初始值，整體優化相機位姿和三維點坐標，最小化重投影誤差。\n    *   輸出：精確的相機外參和稀疏點雲。\n\n3.  **密集點雲生成**:\n    *   使用 PMVS/COLMAP 等 MVS 算法，基於優化後的相機位姿，生成密集三維點雲。\n\n4.  **DEM 生成**:\n    *   對密集點雲進行濾波（去除噪點和非地面點，如果需要 DTM）。\n    *   使用反距離加權（IDW）或克里金（Kriging）插值法，將點雲轉換為格網 DEM。\n\n5.  **正射校正與鑲嵌**:\n    *   創建一個空的地理參考畫布（目標正射影像）。\n    *   對於畫布上的每一個像素 (X, Y)，從 DEM 中獲取其高程 Z。\n    *   使用共線方程，將地理坐標 (X, Y, Z) 投影回多張可能覆蓋此點的原始影像上，計算出其在原始影像上的像素坐標 (x, y)。\n    *   選擇最佳的原始影像（如最接近像主點的）來獲取 (x, y) 處的像素顏色值，並賦值給畫布上的 (X, Y)。\n    *   重複此過程直到填滿整個畫布。\n    *   應用色彩校正和羽化算法處理影像間的接縫，生成最終的正射影像。\n\n**輸出：**\n*   一個高解析度的 GeoTIFF 格式正射影像文件。\n*   數字高程模型 (DEM)。"
+    }
+]
+---
+
+Please generate a new high-quality training sample for the following user request. Remember to strictly follow the output format.
+
+**User Request:** {user_question}
